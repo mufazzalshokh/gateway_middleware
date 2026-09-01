@@ -1,6 +1,6 @@
 source "https://rubygems.org"
 
-gem 'httparty'
+gem "httparty"
 
 # Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
 gem "rails", "~> 8.1.2"
@@ -49,9 +49,9 @@ group :development, :test do
   # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
   gem "rubocop-rails-omakase", require: false
 
-  gem 'rspec-rails'
-  gem 'webmock'
-  gem 'database_cleaner-active_record'
+  gem "rspec-rails"
+  gem "webmock"
+  gem "database_cleaner-active_record"
 end
 
 group :development do
@@ -64,4 +64,3 @@ group :test do
   gem "capybara"
   gem "selenium-webdriver"
 end
-
