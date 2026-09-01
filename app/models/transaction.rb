@@ -8,6 +8,6 @@ class Transaction < ApplicationRecord
   validates :status, presence: true, inclusion: { in: %w[pending success failed error] }
 
   # Scopes
-  scope :pending, -> { where(status: 'pending') }
+  scope :pending, -> { where(status: "pending") }
   scope :completed, -> { where(status: %w[success failed]) }
 end
