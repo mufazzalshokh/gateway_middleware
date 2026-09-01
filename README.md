@@ -1,242 +1,189 @@
-# Gateway/Provider Middleware - Ruby on Rails
+# 💳 Gateway Middleware — Payment Transaction Middleware (Ruby on Rails)
 
-A middleware application that sits between a Gateway system and a Provider system, handling transaction initialization and authorization.
+A Rails middleware application that sits between a Gateway system and a Payment
+Provider, handling transaction initialization, authorization, and state management.
+Built with service-object architecture, full RSpec coverage, and a security analysis
+document covering 12 attack vectors.
+
+![CI](https://github.com/mufazzalshokh/gateway_middleware/actions/workflows/ci.yml/badge.svg)
+![Ruby](https://img.shields.io/badge/ruby-2.7+-red)
+![Rails](https://img.shields.io/badge/rails-6.0+-red)
+![RuboCop](https://img.shields.io/badge/code%20style-rubocop-blue)
 
 ## Overview
 
-This application acts as an intermediary:
-1. **Gateway → Our System**: Receives transaction initialization requests
-2. **Our System → Provider**: Forwards requests to provider's API
-3. **Our System → Gateway**: Returns redirect URLs for user authorization
-4. **User → Our System → Provider**: Handles authorization flow
-
-## Architecture
-
 ```
-Gateway → POST /gateway/transactions → Our System → Provider (init)
-                                           ↓
-                                    Generate redirect_url
-                                           ↓
-User → GET /transactions/auth/:id → Our System → Provider (auth)
-                                           ↓
-                                    Display result
+Gateway ──POST /gateway/transactions──► Our System ──► Provider (init)
+                                             │
+                                      Save transaction
+                                      Generate redirect_url
+                                             │
+                                             ▼
+User ──GET /transactions/auth/:id──► Our System ──► Provider (authorize)
+                                             │
+                                      Update status
+                                             │
+                                             ▼
+                                      Display result
 ```
 
-## Prerequisites
+**Three-party flow:**
+1. Gateway sends a transaction initialization request to our system
+2. We forward it to the Provider, get back a `transaction_id`
+3. We return a `redirect_url` to the Gateway for user authorization
+4. User hits the auth URL → we call Provider to complete authorization
 
-- Ruby 2.7+
-- Rails 6.0+
-- SQLite3
-- Bundler
+## Tech Stack
 
-## Installation
+| Layer | Technology |
+|---|---|
+| Framework | Ruby on Rails 8.1 |
+| Database | SQLite3 (dev) → PostgreSQL-ready |
+| HTTP Client | HTTParty |
+| Testing | RSpec + WebMock (all external calls stubbed) |
+| Linting | RuboCop |
+| Security Scan | Brakeman + bundler-audit |
+| CI | GitHub Actions (4 jobs: security scan, lint, test, system test) |
 
-1. Clone the repository and navigate to the project directory
+## API Reference
 
-2. Install dependencies:
-```bash
-bundle install
-```
+### POST /gateway/transactions
+Receives a transaction from the Gateway, initializes it with the Provider.
 
-3. Setup database:
-```bash
-rails db:create
-rails db:migrate
-```
-
-4. (Optional) Set environment variables:
-```bash
-export PROVIDER_BASE_URL=https://provider.example.com
-export PROVIDER_API_KEY=your_api_key
-```
-
-## Running the Application
-
-Start the Rails server:
-```bash
-rails server
-```
-
-The application will be available at `http://localhost:3000`
-
-## Running Tests
-
-Run the full test suite:
-```bash
-bundle exec rspec
-```
-
-Run specific test files:
-```bash
-bundle exec rspec spec/controllers/gateway/transactions_controller_spec.rb
-bundle exec rspec spec/services/provider_service_spec.rb
-```
-
-With coverage:
-```bash
-COVERAGE=true bundle exec rspec
-```
-
-## API Endpoints
-
-### 1. Initialize Transaction (Gateway → System)
-
-**Endpoint:** `POST /gateway/transactions`
-
-**Request Body:**
+**Request:**
 ```json
-{
-  "amount": 1000,
-  "currency": "EUR",
-  "id": "unique_id_123"
-}
+{ "amount": 1000, "currency": "EUR", "id": "unique_id_123" }
 ```
 
-**Success Response (201):**
-```json
-{
-  "redirect_url": "https://our-app.test/transactions/auth/123"
-}
-```
+**Responses:**
 
-**Error Responses:**
-- `400 Bad Request`: Invalid parameters
-- `503 Service Unavailable`: Provider unavailable
-- `422 Unprocessable Entity`: Duplicate transaction
+| Status | Meaning |
+|---|---|
+| `201 Created` | `{ "redirect_url": "https://our-app/transactions/auth/123" }` |
+| `400 Bad Request` | Invalid or missing parameters |
+| `422 Unprocessable Entity` | Duplicate `external_id` |
+| `503 Service Unavailable` | Provider timeout or error |
 
-### 2. Authorize Transaction (User → System)
+### GET /transactions/auth/:id
+User-facing authorization endpoint.
 
-**Endpoint:** `GET /transactions/auth/:id`
-
-**Success Response (200):**
-```
-success
-```
-
-**Failure Response (200):**
-```
-failed
-```
-
-**Error Responses:**
-- `404 Not Found`: Transaction doesn't exist
-- `400 Bad Request`: Invalid transaction ID format
-- `503 Service Unavailable`: Provider unavailable
-
-## Testing Strategy
-
-All tests use **WebMock** to stub HTTP requests - no real external calls are made.
-
-### Test Coverage:
-
-1. **Service Layer** (`spec/services/provider_service_spec.rb`)
-   - Successful API calls
-   - Error handling
-   - Timeout scenarios
-   - Invalid JSON responses
-
-2. **Gateway Controller** (`spec/controllers/gateway/transactions_controller_spec.rb`)
-   - Valid transaction creation
-   - Input validation
-   - Provider unavailability
-   - Duplicate transaction prevention
-
-3. **Transactions Controller** (`spec/controllers/transactions_controller_spec.rb`)
-   - Successful authorization
-   - Failed authorization
-   - Transaction not found
-   - Security (injection attacks)
-   - Provider errors
-
-4. **Model** (`spec/models/transaction_spec.rb`)
-   - Validations
-   - Scopes
-   - Data integrity
-
-## Security Features
-
-See `SECURITY_ANALYSIS.md` for detailed security analysis.
-
-**Key Security Features:**
-- ✅ Input validation (prevents SQL injection, path traversal)
-- ✅ Request timeouts (10 seconds)
-- ✅ Secure error handling (no information leakage)
-- ✅ Duplicate transaction prevention
-- ✅ HTTPS enforcement for provider communication
-- ✅ Transaction ID format validation
-
-**Recommended for Production:**
-- Rate limiting (rack-attack)
-- API authentication (HMAC signatures)
-- Enhanced logging and monitoring
-- WAF integration
+| Status | Response |
+|---|---|
+| `200` | `success` or `failed` |
+| `400` | Invalid transaction ID format |
+| `404` | Transaction not found |
+| `503` | Provider unavailable |
 
 ## Project Structure
 
 ```
-app/
-├── controllers/
-│   ├── gateway/
-│   │   └── transactions_controller.rb    # Gateway endpoint
-│   └── transactions_controller.rb        # User-facing endpoint
-├── models/
-│   └── transaction.rb                    # Transaction model
-└── services/
-    └── provider_service.rb               # Provider API client
-
-spec/
-├── controllers/
-│   ├── gateway/
+gateway_middleware/
+├── app/
+│   ├── controllers/
+│   │   ├── gateway/
+│   │   │   └── transactions_controller.rb  # Gateway-facing endpoint
+│   │   └── transactions_controller.rb      # User-facing auth endpoint
+│   ├── models/
+│   │   └── transaction.rb                  # Validations + scopes
+│   └── services/
+│       └── provider_service.rb             # Provider API client (HTTParty)
+├── spec/
+│   ├── controllers/gateway/
 │   │   └── transactions_controller_spec.rb
-│   └── transactions_controller_spec.rb
-├── models/
-│   └── transaction_spec.rb
-└── services/
-    └── provider_service_spec.rb
-
-config/
-└── routes.rb                             # API routes
+│   ├── models/
+│   │   └── transaction_spec.rb
+│   └── services/
+│       └── provider_service_spec.rb
+├── .github/workflows/ci.yml                # 4-job CI pipeline
+├── SECURITY_ANALYSISA.md                   # 12-vector security analysis
+└── db/schema.rb
 ```
 
 ## Database Schema
 
-**transactions table:**
-- `id`: Primary key
-- `external_id`: Unique ID from Gateway (unique index)
-- `provider_transaction_id`: Transaction ID from Provider
-- `amount`: Transaction amount (integer, cents)
-- `currency`: Currency code (3 letters, e.g., EUR)
-- `status`: Transaction status (pending/success/failed/error)
-- `created_at`: Timestamp
-- `updated_at`: Timestamp
+```
+transactions
+├── id                      integer   PK
+├── external_id             string    UNIQUE — Gateway's transaction ID
+├── provider_transaction_id string    — Provider's transaction ID
+├── amount                  integer   — Amount in cents
+├── currency                string    — ISO 4217 (e.g. EUR, USD)
+├── status                  string    — pending | success | failed | error
+├── created_at              datetime
+└── updated_at              datetime
+```
 
-## Development Notes
+## Security
 
-### Key Design Decisions:
+Full analysis documented in [`SECURITY_ANALYSISA.md`](./SECURITY_ANALYSISA.md).
+**12 attack vectors analysed** — 4 mitigated in code, 8 documented with
+production recommendations.
 
-1. **Service Object Pattern**: `ProviderService` encapsulates all provider communication
-2. **Error Handling**: Custom `ProviderError` exception for all provider-related errors
-3. **Input Validation**: Both controller-level and model-level validations
-4. **Test Isolation**: All external HTTP calls stubbed using WebMock
-5. **Security First**: Input sanitization, timeout protection, secure error messages
+**Implemented:**
 
-### Future Enhancements:
+| Protection | Implementation |
+|---|---|
+| Input validation | Regex `/\A[a-zA-Z0-9_-]+\z/` blocks SQL injection + path traversal |
+| Duplicate prevention | `external_id` unique index — idempotent by design |
+| Timeout protection | 10s hard timeout on all provider HTTP calls |
+| Error isolation | Generic messages returned; detail only logged server-side |
+| HTTPS enforcement | HTTParty base_uri uses `https://` with TLS verification |
 
-- [ ] Add authentication/authorization
-- [ ] Implement rate limiting
-- [ ] Add request/response logging
-- [ ] Implement retry logic for provider calls
-- [ ] Add monitoring and alerting
-- [ ] Support multiple providers
-- [ ] Add admin dashboard
+**Recommended for production:** rate limiting (rack-attack), HMAC signature
+verification on gateway requests, WAF integration.
 
-## Contributing
+## CI Pipeline
 
-1. Write tests first (TDD approach)
-2. Ensure all tests pass: `bundle exec rspec`
-3. Follow Ruby style guide
-4. Update documentation as needed
+```yaml
+CI on push/PR:
+  ├── scan_ruby   → Brakeman (Rails security scan) + bundler-audit (gem CVEs)
+  ├── lint        → RuboCop with cache
+  ├── test        → RSpec full suite
+  └── system-test → Rails system tests + screenshot upload on failure
+```
 
-## License
+## Testing Strategy
 
-This project is for evaluation purposes.
+All external HTTP calls stubbed via **WebMock** — no real provider calls in tests.
+
+| Spec | Coverage |
+|---|---|
+| `provider_service_spec.rb` | Success, 500 error, invalid JSON, timeout |
+| `transactions_controller_spec.rb` | Valid create, missing params, zero amount, provider down, duplicate ID |
+| `transactions_spec.rb` (model) | Validations, scopes, data integrity |
+
+## Getting Started
+
+```bash
+git clone https://github.com/mufazzalshokh/gateway_middleware.git
+cd gateway_middleware
+bundle install
+rails db:create db:migrate
+
+# Optional: set provider credentials
+export PROVIDER_BASE_URL=https://provider.example.com
+export PROVIDER_API_KEY=your_api_key
+
+rails server
+```
+
+**Run tests:**
+```bash
+bundle exec rspec                                         # full suite
+bundle exec rspec spec/services/provider_service_spec.rb  # service only
+COVERAGE=true bundle exec rspec                           # with coverage
+```
+
+## Key Design Decisions
+
+- **Service Object pattern** — `ProviderService` encapsulates all provider
+  communication. Controllers stay thin; business logic stays testable.
+- **Custom `ProviderError` exception** — all provider failure modes (timeout,
+  5xx, invalid JSON) surface as one exception type, simplifying controller
+  rescue blocks.
+- **Regex input sanitisation at controller level** — transaction IDs validated
+  before they touch the DB or the provider, blocking injection at the entry point.
+- **WebMock for all tests** — tests are deterministic, fast, and never make
+  real HTTP calls. Timeout scenarios are explicitly tested.
+- **`external_id` unique index** — replay protection at the DB level, not just
+  application level.
