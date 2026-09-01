@@ -1,21 +1,21 @@
 # app/services/provider_service.rb
 class ProviderService
   include HTTParty
-  base_uri ENV.fetch('PROVIDER_BASE_URL', 'https://provider.example.com')
+  base_uri ENV.fetch("PROVIDER_BASE_URL", "https://provider.example.com")
 
   class ProviderError < StandardError; end
 
   # Initialize a transaction with the provider
   def self.init_transaction(amount:, currency:, external_id:)
-    response = post('/transactions/init',
+    response = post("/transactions/init",
       body: {
         amount: amount,
         currency: currency,
         id: external_id
       }.to_json,
       headers: {
-        'Content-Type' => 'application/json',
-        'Authorization' => "Bearer #{ENV.fetch('PROVIDER_API_KEY', 'test_key')}"
+        "Content-Type" => "application/json",
+        "Authorization" => "Bearer #{ENV.fetch('PROVIDER_API_KEY', 'test_key')}"
       },
       timeout: 10
     )
@@ -33,8 +33,8 @@ class ProviderService
   def self.authorize_transaction(transaction_id)
     response = put("/transactions/auth/#{transaction_id}",
       headers: {
-        'Content-Type' => 'application/json',
-        'Authorization' => "Bearer #{ENV.fetch('PROVIDER_API_KEY', 'test_key')}"
+        "Content-Type" => "application/json",
+        "Authorization" => "Bearer #{ENV.fetch('PROVIDER_API_KEY', 'test_key')}"
       },
       timeout: 10
     )
