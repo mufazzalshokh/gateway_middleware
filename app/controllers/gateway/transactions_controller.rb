@@ -8,7 +8,7 @@ module Gateway
     def create
       # Validate input
       unless valid_params?
-        return render json: { error: 'Invalid parameters' }, status: :bad_request
+        return render json: { error: "Invalid parameters" }, status: :bad_request
       end
 
       # Call provider to initialize transaction
@@ -20,16 +20,16 @@ module Gateway
         )
       rescue ProviderService::ProviderError => e
         Rails.logger.error("Provider error: #{e.message}")
-        return render json: { error: 'Provider unavailable' }, status: :service_unavailable
+        return render json: { error: "Provider unavailable" }, status: :service_unavailable
       end
 
       # Save transaction in our database
       transaction = Transaction.create!(
         external_id: params[:id],
-        provider_transaction_id: provider_response['transaction_id'],
+        provider_transaction_id: provider_response["transaction_id"],
         amount: params[:amount],
         currency: params[:currency],
-        status: provider_response['status']
+        status: provider_response["status"]
       )
 
       # Build our redirect URL
