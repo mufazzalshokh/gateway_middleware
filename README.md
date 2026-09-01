@@ -5,7 +5,6 @@ Provider, handling transaction initialization, authorization, and state manageme
 Built with service-object architecture, full RSpec coverage, and a security analysis
 document covering 12 attack vectors.
 
-![CI](https://github.com/mufazzalshokh/gateway_middleware/actions/workflows/ci.yml/badge.svg)
 ![Ruby](https://img.shields.io/badge/ruby-2.7+-red)
 ![Rails](https://img.shields.io/badge/rails-6.0+-red)
 ![RuboCop](https://img.shields.io/badge/code%20style-rubocop-blue)
